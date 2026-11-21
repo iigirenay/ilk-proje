@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pazaryeri Kâr Hesaplayıcı</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --text: #1c1f24;
+    --muted: #6b7280;
+    --border: #d9dce1;
+    --accent: #2563eb;
+    --profit: #15803d;
+    --loss: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417;
+      --card: #1c1f24;
+      --text: #e8eaed;
+      --muted: #9aa0a6;
+      --border: #33373d;
+      --accent: #60a5fa;
+      --profit: #4ade80;
+      --loss: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  .card {
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
+  label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
+  .field { margin-bottom: 14px; }
+  .input-wrap { position: relative; }
+  input {
+    width: 100%;
+    padding: 10px 36px 10px 12px;
+    font-size: 1rem;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .unit {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); pointer-events: none;
+  }
+  .results { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px; }
+  .row { display: flex; justify-content: space-between; padding: 4px 0; color: var(--muted); }
+  .row span:last-child { color: var(--text); font-variant-numeric: tabular-nums; }
+  .big { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .box { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .box .lbl { font-size: 0.8rem; color: var(--muted); }
+  .box .val { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .profit { color: var(--profit); }
+  .loss { color: var(--loss); }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>Pazaryeri Kâr Hesaplayıcı</h1>
+  <p class="sub">Değerleri girin, net kâr ve kâr marjı anında hesaplansın.</p>
+
+  <div class="field">
+    <label for="satis">Satış Fiyatı</label>
+    <div class="input-wrap"><input id="satis" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"><span class="unit">₺</span></div>
+  </div>
+  <div class="field">
+    <label for="maliyet">Ürün Maliyeti</label>
+    <div class="input-wrap"><input id="maliyet" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"><span class="unit">₺</span></div>
+  </div>
+  <div class="field">
+    <label for="komisyon">Komisyon Oranı</label>
+    <div class="input-wrap"><input id="komisyon" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="0"><span class="unit">%</span></div>
+  </div>
+  <div class="field">
+    <label for="kargo">Kargo Ücreti</label>
+    <div class="input-wrap"><input id="kargo" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"><span class="unit">₺</span></div>
+  </div>
+
+  <section class="results" aria-live="polite">
+    <div class="row"><span>Komisyon tutarı</span><span id="r-komisyon">—</span></div>
+    <div class="row"><span>Toplam gider</span><span id="r-gider">—</span></div>
+    <div class="big">
+      <div class="box"><div class="lbl" id="r-kar-lbl">Net Kâr</div><div class="val" id="r-kar">—</div></div>
+      <div class="box"><div class="lbl">Kâr Marjı</div><div class="val" id="r-marj">—</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const tl = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' });
+  const pct = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 });
+  const ids = ['satis', 'maliyet', 'komisyon', 'kargo'];
+  const val = id => parseFloat(document.getElementById(id).value) || 0;
+  const $ = id => document.getElementById(id);
+
+  function hesapla() {
+    const satis = val('satis'), maliyet = val('maliyet'), oran = val('komisyon'), kargo = val('kargo');
+    const bos = ids.every(id => $(id).value === '');
+    if (bos) {
+      ['r-komisyon', 'r-gider', 'r-kar', 'r-marj'].forEach(id => { $(id).textContent = '—'; $(id).className = $(id).className.replace(/ ?(profit|loss)/g, ''); });
+      $('r-kar-lbl').textContent = 'Net Kâr';
+      return;
+    }
+    const komisyon = satis * oran / 100;
+    const gider = maliyet + komisyon + kargo;
+    const kar = satis - gider;
+    const marj = satis > 0 ? kar / satis * 100 : null;
+    const cls = kar < 0 ? 'val loss' : 'val profit';
+
+    $('r-komisyon').textContent = tl.format(komisyon);
+    $('r-gider').textContent = tl.format(gider);
+    $('r-kar').textContent = tl.format(kar);
+    $('r-kar').className = cls;
+    $('r-kar-lbl').textContent = kar < 0 ? 'Zarar' : 'Net Kâr';
+    $('r-marj').textContent = marj === null ? '—' : (marj < 0 ? '-%' : '%') + pct.format(Math.abs(marj));
+    $('r-marj').className = marj === null ? 'val' : cls;
+  }
+
+  ids.forEach(id => $(id).addEventListener('input', hesapla));
+</script>
+</body>
+</html>
